@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0B0F19",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "package": "com.hireskys.app",
+      "predictiveBackGestureEnabled": false
+    },
+    "experiments": {
+      "typedRoutes": true
+    },
+    "icon": "./assets/icon.png",
+    "ios": {
+      "bundleIdentifier": "com.hireskys.app",
+      "supportsTablet": true
+    },
+    "name": "HireSkys",
+    "orientation": "portrait",
+    "plugins": [
+      "expo-router"
+    ],
+    "scheme": "hireskys",
+    "slug": "hireskys",
+    "splash": {
+      "backgroundColor": "#0B0F19"
+    },
+    "userInterfaceStyle": "dark",
+    "version": "1.0.0",
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "966b40fc-ab4a-41e3-9bed-ee7913f491d1"
+      }
+    },
+    "owner": "talhaajmal7860s-team"
+  }
+}

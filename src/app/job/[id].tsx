@@ -11,9 +11,7 @@ import {
 import { useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, borderRadius } from "../../lib/theme";
-import type { Job } from "../../lib/api";
-
-const API_BASE = "https://www.hireskys.com/api/v1";
+import { fetchJobById, type Job } from "../../lib/api";
 
 export default function JobDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -22,17 +20,13 @@ export default function JobDetailsScreen() {
 
   useEffect(() => {
     (async () => {
-      try {
-        const res = await fetch(`${API_BASE}/jobs?q=*&per_page=1`);
-        const data = await res.json();
-        // Fallback: find job in latest list (detail endpoint may vary)
-        const found = (data.jobs ?? []).find((j: Job) => j.id === id) ?? null;
-        setJob(found);
-      } catch {
+      const numericId = Number(id);
+      if (!Number.isFinite(numericId)) {
         setJob(null);
-      } finally {
-        setLoading(false);
+      } else {
+        setJob(await fetchJobById(numericId));
       }
+      setLoading(false);
     })();
   }, [id]);
 
@@ -49,7 +43,7 @@ export default function JobDetailsScreen() {
       <View style={styles.center}>
         <Ionicons name="alert-circle-outline" size={48} color={colors.textFaint} />
         <Text style={styles.emptyText}>
-          Couldn't load this job.{"\n"}Open it on hireskys.com instead.
+          Couldn&apos;t load this job.{"\n"}Open it on hireskys.com instead.
         </Text>
         <TouchableOpacity
           style={styles.button}
@@ -65,7 +59,9 @@ export default function JobDetailsScreen() {
     <ScrollView style={styles.container}>
       <View style={styles.card}>
         <Text style={styles.title}>{job.title}</Text>
-        <Text style={styles.company}>{job.company}</Text>
+        {job.company ? (
+          <Text style={styles.company}>{job.company}</Text>
+        ) : null}
 
         <View style={styles.metaRow}>
           {job.location ? (

@@ -8,12 +8,10 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { colors, spacing, borderRadius } from "../../lib/theme";
 import { searchJobs, type Job } from "../../lib/api";
 import { JobCard } from "../../components/JobCard";
-
-const SAVED_KEY = "@hireskys/saved_jobs";
+import { useSavedJobs } from "../../hooks/useSavedJobs";
 
 const CATEGORIES = [
   "Engineering",
@@ -32,7 +30,7 @@ export default function SearchScreen() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
-  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+  const { isSaved, toggleSave } = useSavedJobs();
 
   const doSearch = useCallback(async (q: string) => {
     if (!q.trim()) {
@@ -46,28 +44,7 @@ export default function SearchScreen() {
     setJobs(results);
     setTotal(t);
     setLoading(false);
-    try {
-      const raw = await AsyncStorage.getItem(SAVED_KEY);
-      if (raw) {
-        const saved: Job[] = JSON.parse(raw);
-        setSavedIds(new Set(saved.map((j) => j.id)));
-      }
-    } catch {}
   }, []);
-
-  const toggleSave = async (job: Job) => {
-    try {
-      const raw = await AsyncStorage.getItem(SAVED_KEY);
-      let saved: Job[] = raw ? JSON.parse(raw) : [];
-      if (savedIds.has(job.id)) {
-        saved = saved.filter((j) => j.id !== job.id);
-      } else {
-        saved = [job, ...saved];
-      }
-      await AsyncStorage.setItem(SAVED_KEY, JSON.stringify(saved));
-      setSavedIds(new Set(saved.map((j) => j.id)));
-    } catch {}
-  };
 
   return (
     <View style={styles.container}>
@@ -124,11 +101,11 @@ export default function SearchScreen() {
       ) : searched ? (
         <FlatList
           data={jobs}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => String(item.id)}
           renderItem={({ item }) => (
             <JobCard
               job={item}
-              saved={savedIds.has(item.id)}
+              saved={isSaved(item.id)}
               onToggleSave={toggleSave}
             />
           )}

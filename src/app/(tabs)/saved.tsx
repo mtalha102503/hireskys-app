@@ -1,43 +1,23 @@
-import { useState, useCallback } from "react";
+import { useCallback } from "react";
 import { View, Text, FlatList, StyleSheet } from "react-native";
 import { useFocusEffect } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing } from "../../lib/theme";
-import type { Job } from "../../lib/api";
 import { JobCard } from "../../components/JobCard";
-
-const SAVED_KEY = "@hireskys/saved_jobs";
+import { useSavedJobs } from "../../hooks/useSavedJobs";
 
 export default function SavedScreen() {
-  const [saved, setSaved] = useState<Job[]>([]);
-
-  const loadSaved = useCallback(async () => {
-    try {
-      const raw = await AsyncStorage.getItem(SAVED_KEY);
-      setSaved(raw ? JSON.parse(raw) : []);
-    } catch {
-      setSaved([]);
-    }
-  }, []);
+  const { savedJobs, toggleSave, refresh } = useSavedJobs();
 
   useFocusEffect(
     useCallback(() => {
-      loadSaved();
-    }, [loadSaved])
+      refresh();
+    }, [refresh])
   );
-
-  const removeSaved = async (job: Job) => {
-    try {
-      const updated = saved.filter((j) => j.id !== job.id);
-      await AsyncStorage.setItem(SAVED_KEY, JSON.stringify(updated));
-      setSaved(updated);
-    } catch {}
-  };
 
   return (
     <View style={styles.container}>
-      {saved.length === 0 ? (
+      {savedJobs.length === 0 ? (
         <View style={styles.empty}>
           <Ionicons name="bookmark-outline" size={56} color={colors.textFaint} />
           <Text style={styles.emptyTitle}>No saved jobs yet</Text>
@@ -47,14 +27,14 @@ export default function SavedScreen() {
         </View>
       ) : (
         <FlatList
-          data={saved}
-          keyExtractor={(item) => item.id}
+          data={savedJobs}
+          keyExtractor={(item) => String(item.id)}
           renderItem={({ item }) => (
-            <JobCard job={item} saved onToggleSave={removeSaved} />
+            <JobCard job={item} saved onToggleSave={toggleSave} />
           )}
           ListHeaderComponent={
             <Text style={styles.count}>
-              {saved.length} saved job{saved.length === 1 ? "" : "s"}
+              {savedJobs.length} saved job{savedJobs.length === 1 ? "" : "s"}
             </Text>
           }
         />

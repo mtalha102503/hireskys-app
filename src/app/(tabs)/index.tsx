@@ -7,12 +7,10 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { colors, spacing } from "../../lib/theme";
 import { fetchJobs, type Job } from "../../lib/api";
 import { JobCard } from "../../components/JobCard";
-
-const SAVED_KEY = "@hireskys/saved_jobs";
+import { useSavedJobs } from "../../hooks/useSavedJobs";
 
 export default function HomeScreen() {
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -21,17 +19,7 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
-
-  const loadSaved = useCallback(async () => {
-    try {
-      const raw = await AsyncStorage.getItem(SAVED_KEY);
-      if (raw) {
-        const saved: Job[] = JSON.parse(raw);
-        setSavedIds(new Set(saved.map((j) => j.id)));
-      }
-    } catch {}
-  }, []);
+  const { isSaved, toggleSave } = useSavedJobs();
 
   const load = useCallback(async (p: number, append = false) => {
     if (p === 1) setLoading(true);
@@ -45,9 +33,9 @@ export default function HomeScreen() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load(1);
-    loadSaved();
-  }, [load, loadSaved]);
+  }, [load]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -61,20 +49,6 @@ export default function HomeScreen() {
       setPage(next);
       load(next, true);
     }
-  };
-
-  const toggleSave = async (job: Job) => {
-    try {
-      const raw = await AsyncStorage.getItem(SAVED_KEY);
-      let saved: Job[] = raw ? JSON.parse(raw) : [];
-      if (savedIds.has(job.id)) {
-        saved = saved.filter((j) => j.id !== job.id);
-      } else {
-        saved = [job, ...saved];
-      }
-      await AsyncStorage.setItem(SAVED_KEY, JSON.stringify(saved));
-      setSavedIds(new Set(saved.map((j) => j.id)));
-    } catch {}
   };
 
   if (loading) {
@@ -95,11 +69,11 @@ export default function HomeScreen() {
       </View>
       <FlatList
         data={jobs}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => String(item.id)}
         renderItem={({ item }) => (
           <JobCard
             job={item}
-            saved={savedIds.has(item.id)}
+            saved={isSaved(item.id)}
             onToggleSave={toggleSave}
           />
         )}

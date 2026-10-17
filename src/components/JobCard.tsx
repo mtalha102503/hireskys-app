@@ -19,9 +19,11 @@ export function JobCard({ job, saved = false, onToggleSave }: Props) {
             <Text style={styles.title} numberOfLines={2}>
               {job.title}
             </Text>
-            <Text style={styles.company} numberOfLines={1}>
-              {job.company}
-            </Text>
+            {job.company ? (
+              <Text style={styles.company} numberOfLines={1}>
+                {job.company}
+              </Text>
+            ) : null}
             <View style={styles.meta}>
               {job.location ? (
                 <View style={styles.metaItem}>

@@ -1,10 +1,11 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { colors } from "../lib/theme";
+import { AuthProvider } from "../context/AuthContext";
 
 export default function RootLayout() {
   return (
-    <>
+    <AuthProvider>
       <StatusBar style="light" />
       <Stack
         screenOptions={{
@@ -20,6 +21,6 @@ export default function RootLayout() {
           options={{ title: "Job Details", headerBackTitle: "Back" }}
         />
       </Stack>
-    </>
+    </AuthProvider>
   );
 }

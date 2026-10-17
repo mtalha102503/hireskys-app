@@ -1,69 +1,96 @@
-// HireSkys API client — talks to the public hireskys.com API
-// No keys needed; uses the same search backend as the website.
-
-const API_BASE = "https://www.hireskys.com/api/v1";
+import { supabase } from "./supabase";
 
 export interface Job {
-  id: string;
+  id: number;
   title: string;
-  company: string;
-  company_logo_url?: string;
-  location: string;
-  category?: string;
-  job_type?: string;
-  experience_level?: string;
-  salary_range?: string;
-  tags?: string[];
-  link?: string;
-  date_posted?: string;
-  description?: string;
+  company: string | null;
+  company_logo_url: string | null;
+  location: string | null;
+  category: string | null;
+  job_type: string | null;
+  experience_level: string | null;
+  salary_range: string | null;
+  tags: string[] | null;
+  link: string | null;
+  slug: string | null;
+  date_posted: string | null;
 }
 
-interface JobsResponse {
-  success: boolean;
-  data?: Job[];
-  total_jobs?: number;
-  page?: number;
-  total_pages?: number;
+// Only the columns the UI needs — keeps every query light on the DB.
+const JOB_COLUMNS =
+  "id,title,company,company_logo_url,location,category,job_type,experience_level,salary_range,tags,link,slug,date_posted";
+
+function baseQuery() {
+  return supabase
+    .from("jobs")
+    .select(JOB_COLUMNS, { count: "exact" })
+    .eq("active", true)
+    .eq("approved", true)
+    .order("date_posted", { ascending: false });
 }
 
-async function apiGet(path: string, params: Record<string, string> = {}): Promise<JobsResponse | null> {
-  try {
-    const url = new URL(`${API_BASE}${path}`);
-    Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v));
-    const res = await fetch(url.toString());
-    if (!res.ok) return null;
-    return (await res.json()) as JobsResponse;
-  } catch (e) {
-    console.error("API error:", e);
+export async function fetchJobs(
+  page = 1,
+  perPage = 20
+): Promise<{ jobs: Job[]; total: number }> {
+  const from = (page - 1) * perPage;
+  const to = from + perPage - 1;
+  const { data, error, count } = await baseQuery().range(from, to);
+  if (error) {
+    console.error("fetchJobs error:", error.message);
+    return { jobs: [], total: 0 };
+  }
+  return { jobs: (data ?? []) as Job[], total: count ?? 0 };
+}
+
+export async function searchJobs(
+  query: string,
+  page = 1,
+  perPage = 20
+): Promise<{ jobs: Job[]; total: number }> {
+  const q = query.trim();
+  if (!q) return fetchJobs(page, perPage);
+  const from = (page - 1) * perPage;
+  const to = from + perPage - 1;
+  // ilike on title/company — single query, no extra round trips.
+  const { data, error, count } = await baseQuery()
+    .or(`title.ilike.%${q}%,company.ilike.%${q}%`)
+    .range(from, to);
+  if (error) {
+    console.error("searchJobs error:", error.message);
+    return { jobs: [], total: 0 };
+  }
+  return { jobs: (data ?? []) as Job[], total: count ?? 0 };
+}
+
+export async function fetchJobsByCategory(
+  category: string,
+  page = 1,
+  perPage = 20
+): Promise<{ jobs: Job[]; total: number }> {
+  const from = (page - 1) * perPage;
+  const to = from + perPage - 1;
+  const { data, error, count } = await baseQuery()
+    .eq("category", category)
+    .range(from, to);
+  if (error) {
+    console.error("fetchJobsByCategory error:", error.message);
+    return { jobs: [], total: 0 };
+  }
+  return { jobs: (data ?? []) as Job[], total: count ?? 0 };
+}
+
+export async function fetchJobById(id: number): Promise<Job | null> {
+  const { data, error } = await supabase
+    .from("jobs")
+    .select(JOB_COLUMNS)
+    .eq("id", id)
+    .eq("active", true)
+    .eq("approved", true)
+    .single();
+  if (error) {
+    console.error("fetchJobById error:", error.message);
     return null;
   }
-}
-
-export async function fetchJobs(page = 1, perPage = 20): Promise<{ jobs: Job[]; total: number }> {
-  const data = await apiGet("/jobs", {
-    q: "*",
-    page: String(page),
-    per_page: String(perPage),
-  });
-  return { jobs: data?.data ?? [], total: data?.total_jobs ?? 0 };
-}
-
-export async function searchJobs(query: string, page = 1): Promise<{ jobs: Job[]; total: number }> {
-  const data = await apiGet("/jobs", {
-    q: query || "*",
-    page: String(page),
-    per_page: "20",
-  });
-  return { jobs: data?.data ?? [], total: data?.total_jobs ?? 0 };
-}
-
-export async function fetchJobsByCategory(category: string, page = 1): Promise<{ jobs: Job[]; total: number }> {
-  const data = await apiGet("/jobs", {
-    q: "*",
-    category,
-    page: String(page),
-    per_page: "20",
-  });
-  return { jobs: data?.data ?? [], total: data?.total_jobs ?? 0 };
+  return data as Job;
 }

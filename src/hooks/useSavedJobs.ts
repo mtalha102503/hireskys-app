@@ -47,15 +47,23 @@ export function useSavedJobs() {
         const job = await fetchJobById(id);
         if (job) localMap.set(id, job);
       }
-      // Push local-only saves up to the cloud.
+      // Push local-only saves up to the cloud (check-then-insert;
+      // the table uses a surrogate id PK).
       const localOnly = [...localMap.keys()].filter(
         (id) => !cloudIds.includes(id)
       );
-      if (localOnly.length > 0) {
-        await supabase.from("saved_jobs").upsert(
-          localOnly.map((job_id) => ({ user_id: user.id, job_id })),
-          { onConflict: "user_id,job_id" }
-        );
+      for (const job_id of localOnly) {
+        const { data: existing } = await supabase
+          .from("saved_jobs")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("job_id", job_id)
+          .limit(1);
+        if (!existing || existing.length === 0) {
+          await supabase
+            .from("saved_jobs")
+            .insert({ user_id: user.id, job_id });
+        }
       }
     }
 
@@ -87,12 +95,17 @@ export function useSavedJobs() {
       } else {
         next.set(job.id, job);
         if (user) {
-          await supabase
+          const { data: existing } = await supabase
             .from("saved_jobs")
-            .upsert(
-              { user_id: user.id, job_id: job.id },
-              { onConflict: "user_id,job_id" }
-            );
+            .select("id")
+            .eq("user_id", user.id)
+            .eq("job_id", job.id)
+            .limit(1);
+          if (!existing || existing.length === 0) {
+            await supabase
+              .from("saved_jobs")
+              .insert({ user_id: user.id, job_id: job.id });
+          }
         }
       }
       const arr = [...next.values()];

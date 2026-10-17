@@ -44,11 +44,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       options: { data: { name: name.trim() } },
     });
     if (error) return error.message;
-    // Create the profile row for the new user.
+    // Create the profile row for the new user (matches existing profiles schema).
     if (data.user) {
       await supabase.from("profiles").upsert({
         id: data.user.id,
-        name: name.trim(),
+        email: email.trim(),
+        full_name: name.trim(),
       });
     }
     return null;

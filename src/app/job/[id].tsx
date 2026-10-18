@@ -7,24 +7,54 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Linking,
+  Image,
 } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { colors, spacing, borderRadius } from "../../lib/theme";
-import { fetchJobById, type Job } from "../../lib/api";
+import {
+  fetchJobDetails,
+  fetchCompanyByEmployerId,
+  type JobDetails,
+  type Company,
+} from "../../lib/api";
+import { HtmlText } from "../../components/HtmlText";
+import { useSavedJobs } from "../../hooks/useSavedJobs";
+
+function timeAgo(iso: string | null): string | null {
+  if (!iso) return null;
+  const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 0) return null;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 30) return `${days}d ago`;
+  const months = Math.floor(days / 30);
+  if (months < 12) return `${months}mo ago`;
+  return `${Math.floor(months / 12)}y ago`;
+}
 
 export default function JobDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [job, setJob] = useState<Job | null>(null);
+  const [job, setJob] = useState<JobDetails | null>(null);
+  const [company, setCompany] = useState<Company | null>(null);
   const [loading, setLoading] = useState(true);
+  const { isSaved, toggleSave } = useSavedJobs();
 
   useEffect(() => {
     (async () => {
       const numericId = Number(id);
       if (!Number.isFinite(numericId)) {
-        setJob(null);
-      } else {
-        setJob(await fetchJobById(numericId));
+        setLoading(false);
+        return;
+      }
+      const details = await fetchJobDetails(numericId);
+      setJob(details);
+      if (details?.employer_id) {
+        setCompany(await fetchCompanyByEmployerId(details.employer_id));
       }
       setLoading(false);
     })();
@@ -41,50 +71,92 @@ export default function JobDetailsScreen() {
   if (!job) {
     return (
       <View style={styles.center}>
-        <Ionicons name="alert-circle-outline" size={48} color={colors.textFaint} />
+        <Ionicons
+          name="alert-circle-outline"
+          size={48}
+          color={colors.textFaint}
+        />
         <Text style={styles.emptyText}>
           Couldn&apos;t load this job.{"\n"}Open it on hireskys.com instead.
         </Text>
         <TouchableOpacity
           style={styles.button}
-          onPress={() => Linking.openURL(`https://www.hireskys.com/jobs/${id}`)}
+          onPress={() => Linking.openURL("https://www.hireskys.com")}
         >
-          <Text style={styles.buttonText}>View on Website</Text>
+          <Text style={styles.buttonText}>Open HireSkys</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
+  const saved = isSaved(job.id);
+  const posted = timeAgo(job.date_posted);
+  const companyName = company?.name ?? job.company;
+  const companyLogo = company?.logo_url ?? job.company_logo_url;
+  const jobUrl = `https://www.hireskys.com/jobs/${job.slug ?? job.id}`;
+
   return (
     <ScrollView style={styles.container}>
+      {/* Header card — mirrors the website's job header */}
       <View style={styles.card}>
         <Text style={styles.title}>{job.title}</Text>
-        {job.company ? (
-          <Text style={styles.company}>{job.company}</Text>
+
+        {companyName ? (
+          <View style={styles.companyRow}>
+            {companyLogo ? (
+              <Image source={{ uri: companyLogo }} style={styles.logo} />
+            ) : null}
+            <Text style={styles.company}>{companyName}</Text>
+            {company?.verified || job.is_verified ? (
+              <Ionicons
+                name="checkmark-circle"
+                size={16}
+                color={colors.verified}
+              />
+            ) : null}
+          </View>
         ) : null}
 
         <View style={styles.metaRow}>
           {job.location ? (
-            <View style={styles.metaItem}>
-              <Ionicons name="location-outline" size={14} color={colors.textMuted} />
-              <Text style={styles.metaText}>{job.location}</Text>
+            <View style={styles.pill}>
+              <Ionicons
+                name="location-outline"
+                size={13}
+                color={colors.textMuted}
+              />
+              <Text style={styles.pillText}>{job.location}</Text>
+            </View>
+          ) : null}
+          {job.salary_range ? (
+            <View style={[styles.pill, styles.salaryPill]}>
+              <Text style={[styles.pillText, styles.salaryText]}>
+                {job.salary_range}
+              </Text>
             </View>
           ) : null}
           {job.job_type ? (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{job.job_type}</Text>
+            <View style={styles.pill}>
+              <Text style={styles.pillText}>{job.job_type}</Text>
+            </View>
+          ) : null}
+          {job.experience_level ? (
+            <View style={styles.pill}>
+              <Text style={styles.pillText}>{job.experience_level}</Text>
             </View>
           ) : null}
           {job.category ? (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{job.category}</Text>
+            <View style={styles.pill}>
+              <Text style={styles.pillText}>{job.category}</Text>
+            </View>
+          ) : null}
+          {posted ? (
+            <View style={styles.pill}>
+              <Ionicons name="time-outline" size={13} color={colors.textMuted} />
+              <Text style={styles.pillText}>{posted}</Text>
             </View>
           ) : null}
         </View>
-
-        {job.salary_range ? (
-          <Text style={styles.salary}>{job.salary_range}</Text>
-        ) : null}
 
         {job.tags && job.tags.length > 0 ? (
           <View style={styles.tags}>
@@ -97,18 +169,95 @@ export default function JobDetailsScreen() {
         ) : null}
       </View>
 
-      <TouchableOpacity
-        style={styles.applyButton}
-        onPress={() =>
-          Linking.openURL(job.link ?? `https://www.hireskys.com/jobs/${job.id}`)
-        }
-      >
-        <Text style={styles.applyText}>Apply on HireSkys</Text>
-        <Ionicons name="open-outline" size={18} color="#fff" />
-      </TouchableOpacity>
+      {/* Full description — same content as the website's Job Description card */}
+      {job.description ? (
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>Job Description</Text>
+          <HtmlText
+            html={job.description}
+            style={styles.description}
+            boldStyle={styles.descriptionBold}
+          />
+        </View>
+      ) : null}
+
+      {/* Company card — mirrors the website's company block */}
+      {company ? (
+        <View style={styles.card}>
+          <Text style={styles.sectionTitle}>About {company.name}</Text>
+          <View style={styles.companyRow}>
+            {company.logo_url ? (
+              <Image source={{ uri: company.logo_url }} style={styles.logo} />
+            ) : null}
+            <View style={styles.companyInfo}>
+              <View style={styles.companyNameRow}>
+                <Text style={styles.companyCardName}>{company.name}</Text>
+                {company.verified ? (
+                  <Ionicons
+                    name="checkmark-circle"
+                    size={16}
+                    color={colors.verified}
+                  />
+                ) : null}
+              </View>
+              {[company.industry, company.location]
+                .filter(Boolean)
+                .join(" • ") ? (
+                <Text style={styles.companyMeta}>
+                  {[company.industry, company.location]
+                    .filter(Boolean)
+                    .join(" • ")}
+                </Text>
+              ) : null}
+            </View>
+          </View>
+          {company.description ? (
+            <Text style={styles.companyDesc} numberOfLines={6}>
+              {company.description}
+            </Text>
+          ) : null}
+          <TouchableOpacity
+            style={styles.outlineButton}
+            onPress={() =>
+              Linking.openURL(
+                `https://www.hireskys.com/companies/${company.slug}`
+              )
+            }
+          >
+            <Text style={styles.outlineButtonText}>View Company Profile</Text>
+            <Ionicons name="open-outline" size={16} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      {/* Actions */}
+      <View style={styles.actions}>
+        <TouchableOpacity
+          style={styles.applyButton}
+          onPress={() => Linking.openURL(jobUrl)}
+        >
+          <Text style={styles.applyText}>View & Apply on HireSkys</Text>
+          <Ionicons name="open-outline" size={18} color="#fff" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.saveButton, saved && styles.saveButtonActive]}
+          onPress={() => toggleSave(job)}
+        >
+          <Ionicons
+            name={saved ? "bookmark" : "bookmark-outline"}
+            size={20}
+            color={saved ? "#fff" : colors.primary}
+          />
+          <Text
+            style={[styles.saveText, saved && styles.saveTextActive]}
+          >
+            {saved ? "Saved" : "Save"}
+          </Text>
+        </TouchableOpacity>
+      </View>
 
       <Text style={styles.hint}>
-        Applying opens the full job page on hireskys.com
+        Opens the full job page on hireskys.com — apply from there
       </Text>
     </ScrollView>
   );
@@ -139,7 +288,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     padding: spacing.lg,
-    margin: spacing.md,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.md,
+    // subtle shadow on light theme
+    shadowColor: "#0F172A",
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
   title: {
     color: colors.text,
@@ -147,11 +303,46 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     lineHeight: 28,
   },
+  companyRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: spacing.sm,
+    gap: spacing.sm,
+  },
+  logo: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    backgroundColor: colors.surface,
+  },
   company: {
-    color: colors.primaryLight,
+    color: colors.primary,
     fontSize: 16,
     fontWeight: "600",
-    marginTop: 4,
+  },
+  companyInfo: {
+    flex: 1,
+  },
+  companyNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  companyCardName: {
+    color: colors.text,
+    fontSize: 16,
+    fontWeight: "700",
+  },
+  companyMeta: {
+    color: colors.textMuted,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  companyDesc: {
+    color: colors.textMuted,
+    fontSize: 14,
+    lineHeight: 21,
+    marginTop: spacing.sm,
   },
   metaRow: {
     flexDirection: "row",
@@ -160,31 +351,29 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     marginTop: spacing.md,
   },
-  metaItem: {
+  pill: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-  },
-  metaText: {
-    color: colors.textMuted,
-    fontSize: 13,
-  },
-  badge: {
-    backgroundColor: colors.surfaceLight,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
     borderRadius: borderRadius.full,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
   },
-  badgeText: {
+  pillText: {
     color: colors.textMuted,
     fontSize: 12,
     fontWeight: "600",
   },
-  salary: {
+  salaryPill: {
+    backgroundColor: "#F0FDF4",
+    borderColor: "#BBF7D0",
+  },
+  salaryText: {
     color: colors.success,
-    fontSize: 16,
     fontWeight: "700",
-    marginTop: spacing.md,
   },
   tags: {
     flexDirection: "row",
@@ -193,31 +382,94 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
   },
   tag: {
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
+    backgroundColor: "#EEF2FF",
     borderRadius: borderRadius.full,
     paddingHorizontal: 10,
     paddingVertical: 5,
   },
   tagText: {
-    color: colors.textMuted,
+    color: colors.primary,
     fontSize: 12,
+    fontWeight: "600",
+  },
+  sectionTitle: {
+    color: colors.text,
+    fontSize: 17,
+    fontWeight: "800",
+    marginBottom: spacing.sm,
+  },
+  description: {
+    color: "#334155",
+    fontSize: 14,
+    lineHeight: 22,
+  },
+  descriptionBold: {
+    fontWeight: "700",
+    color: colors.text,
+  },
+  outlineButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderRadius: borderRadius.md,
+    paddingVertical: 12,
+    marginTop: spacing.md,
+  },
+  outlineButtonText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  actions: {
+    flexDirection: "row",
+    gap: spacing.sm,
+    marginHorizontal: spacing.md,
+    marginTop: spacing.md,
   },
   applyButton: {
+    flex: 1,
     backgroundColor: colors.primary,
     borderRadius: borderRadius.md,
-    marginHorizontal: spacing.md,
     paddingVertical: 16,
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     gap: spacing.sm,
+    shadowColor: colors.primary,
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 4,
   },
   applyText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "700",
+  },
+  saveButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: 16,
+  },
+  saveButtonActive: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  saveText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  saveTextActive: {
+    color: "#fff",
   },
   button: {
     backgroundColor: colors.primary,

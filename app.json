@@ -1,1 +1,41 @@
-{"expo":{"android":{"adaptiveIcon":{"backgroundColor":"#0B0F19"},"package":"com.hireskys.app","predictiveBackGestureEnabled":false},"experiments":{"typedRoutes":true},"extra":{"eas":{"projectId":"966b40fc-ab4a-41e3-9bed-ee7913f491d1"},"router":{"asyncRoutes":{"web":true}}},"ios":{"bundleIdentifier":"com.hireskys.app","supportsTablet":true},"name":"HireSkys","orientation":"portrait","owner":"talhaajmal7860s-team","plugins":["expo-router"],"scheme":"hireskys","slug":"hireskys","splash":{"backgroundColor":"#0B0F19"},"userInterfaceStyle":"dark","version":"1.0.0"}}
+{
+  "expo": {
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#FFFFFF"
+      },
+      "package": "com.hireskys.app",
+      "predictiveBackGestureEnabled": false
+    },
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "eas": {
+        "projectId": "966b40fc-ab4a-41e3-9bed-ee7913f491d1"
+      },
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.hireskys.app",
+      "supportsTablet": true
+    },
+    "name": "HireSkys",
+    "orientation": "portrait",
+    "owner": "talhaajmal7860s-team",
+    "plugins": [
+      "expo-router"
+    ],
+    "scheme": "hireskys",
+    "slug": "hireskys",
+    "splash": {
+      "backgroundColor": "#FFFFFF"
+    },
+    "userInterfaceStyle": "light",
+    "version": "1.0.0"
+  }
+}

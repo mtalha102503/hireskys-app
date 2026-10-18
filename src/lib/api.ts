@@ -94,3 +94,53 @@ export async function fetchJobById(id: number): Promise<Job | null> {
   }
   return data as Job;
 }
+
+// Full job record for the details screen — description is heavy,
+// so it is only fetched here, never in list queries.
+export interface JobDetails extends Job {
+  description: string | null;
+  employer_id: string | null;
+  is_verified: boolean | null;
+}
+
+export async function fetchJobDetails(id: number): Promise<JobDetails | null> {
+  const { data, error } = await supabase
+    .from("jobs")
+    .select(`${JOB_COLUMNS},description,employer_id,is_verified`)
+    .eq("id", id)
+    .eq("active", true)
+    .eq("approved", true)
+    .single();
+  if (error) {
+    console.error("fetchJobDetails error:", error.message);
+    return null;
+  }
+  return data as JobDetails;
+}
+
+export interface Company {
+  slug: string;
+  name: string;
+  description: string | null;
+  logo_url: string | null;
+  website: string | null;
+  location: string | null;
+  industry: string | null;
+  verified: boolean | null;
+}
+
+export async function fetchCompanyByEmployerId(
+  employerId: string
+): Promise<Company | null> {
+  const { data, error } = await supabase
+    .from("companies")
+    .select("slug,name,description,logo_url,website,location,industry,verified")
+    .eq("employer_id", employerId)
+    .limit(1)
+    .maybeSingle();
+  if (error) {
+    console.error("fetchCompanyByEmployerId error:", error.message);
+    return null;
+  }
+  return data as Company | null;
+}
